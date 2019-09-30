@@ -26,11 +26,11 @@ At the time of development, there did not exist a single Python package that col
 - Supports classification and regression neural networks.
 
 ## Installation
-mlrose was written in Python 3 and requires NumPy, SciPy and Scikit-Learn (sklearn).
+mlrose was written in Python 3 and requires NumPy, SciPy and Scikit-Learn (sklearn). Andrew Rollings made modifications to the genetic algorithm to improve performance, including elites and dregs. Additional modifications were made to allow for periodic output.
 
-The latest released version is available at the [Python package index](https://pypi.org/project/mlrose/) and can be installed using `pip`:
+The version used for CS7641 assignment 2 is available at https://github.com/tmsuidan/mlrose/ and can be installed using `pip`:
 ```
-pip install mlrose
+pip install git+https://github.com/tmsuidan/mlrose
 ```
 
 ## Documentation
