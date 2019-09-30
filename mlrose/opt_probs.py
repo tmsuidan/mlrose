@@ -984,23 +984,27 @@ class TSPOpt(DiscreteOpt):
             raise Exception("""mutation_prob must be between 0 and 1.""")
 
         # Reproduce parents
-        if self.length > 1:
-            _n = np.random.randint(self.length - 1)
-            child = np.array([0]*self.length)
-            child[0:_n+1] = parent_1[0:_n+1]
-
-            unvisited = \
-                [node for node in parent_2 if node not in parent_1[0:_n+1]]
-            child[_n+1:] = unvisited
-        elif np.random.randint(2) == 0:
-            child = np.copy(parent_1)
-        else:
-            child = np.copy(parent_2)
+        child = self._make_child_original(parent_1, parent_2)
 
         # Mutate child
+        child = self._check_to_mutate_abagail(child, mutation_prob)
+
+        return child
+
+    def _check_to_mutate_abagail(self, child, mutation_prob):
+        if np.random.rand() > mutation_prob:
+            return child
+        # do swap mutation
+        m1 = np.random.randint(len(child))
+        m2 = np.random.randint(len(child))
+        tmp = child[m1]
+        child[m1] = child[m2]
+        child[m2] = tmp
+        return child
+
+    def _check_to_mutate_original(self, child, mutation_prob):
         rand = np.random.uniform(size=self.length)
         mutate = np.where(rand < mutation_prob)[0]
-
         if len(mutate) > 0:
             mutate_perm = np.random.permutation(mutate)
             temp = np.copy(child)
@@ -1008,6 +1012,56 @@ class TSPOpt(DiscreteOpt):
             for i in range(len(mutate)):
                 child[mutate[i]] = temp[mutate_perm[i]]
 
+    def _make_child_abagail(self, parent_1, parent_2):
+        if self.length > 1:
+            next_a = np.append(parent_1[1:], parent_1[-1])
+            next_b = np.append(parent_2[1:], parent_2[-1])
+
+            visited = [False] * self.length
+            child = np.array([0] * self.length)
+
+            v = np.random.randint(len(parent_1))
+            child[0] = v
+            visited[v] = True
+            for i in range(1, len(child)):
+                cur = child[i]
+                na = next_a[cur]
+                nb = next_b[cur]
+                va = visited[na]
+                vb = visited[nb]
+                if va and not vb:
+                    nx = nb
+                elif not va and vb:
+                    nx = na
+                elif not va and not vb:
+                    fa = self.maximize * self.fitness_fn.calculate_fitness([cur, na])
+                    fb = self.maximize * self.fitness_fn.calculate_fitness([cur, nb])
+                    nx = nb if fb > fa else na
+                else:
+                    while True:
+                        nx = np.random.randint(len(parent_1))
+                        if not visited[nx]:
+                            break
+                child[i] = nx
+                visited[nx] = True
+        elif np.random.randint(2) == 0:
+            child = np.copy(parent_1, copy=True)
+        else:
+            child = np.copy(parent_2, copy=True)
+        return child
+
+    def _make_child_original(self, parent_1, parent_2):
+        if self.length > 1:
+            _n = np.random.randint(self.length - 1)
+            child = np.array([0] * self.length)
+            child[0:_n + 1] = parent_1[0:_n + 1]
+
+            unvisited = [node for node in parent_2 if node not in parent_1[0:_n + 1]]
+            child[_n + 1:] = unvisited
+        elif np.random.randint(2) == 0:
+            child = np.copy(parent_1)
+        else:
+            child = np.copy(parent_2)
         return child
 
     def sample_pop(self, sample_size):

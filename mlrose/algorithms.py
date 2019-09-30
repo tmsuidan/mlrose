@@ -9,7 +9,8 @@ from .decay import GeomDecay
 
 
 def hill_climb(problem, max_iters=np.inf, restarts=0, init_state=None,
-               curve=False, random_state=None):
+               curve=False, random_state=None,
+               state_fitness_callback=None, callback_user_info=None):
     """Use standard hill climbing to find the optimum for a given
     optimization problem.
 
@@ -34,6 +35,12 @@ def hill_climb(problem, max_iters=np.inf, restarts=0, init_state=None,
     random_state: int, default: None
         If random_state is a positive integer, random_state is the seed used
         by np.random.seed(); otherwise, the random seed is not set.
+    state_fitness_callback: function taking two parameters, default: None
+        If specified, this callback will be invoked once per iteration.
+        Parameters are (iteration, current best state, current best fit, user callback data).
+        Return true to continue iterating, or false to stop.
+    callback_user_info: any, default: None
+        User data passed as last parameter of callback.
 
     Returns
     -------
@@ -70,7 +77,7 @@ def hill_climb(problem, max_iters=np.inf, restarts=0, init_state=None,
 
     if curve:
         fitness_curve = []
-
+    continue_iterating = True
     for _ in range(restarts + 1):
         # Initialize optimization problem
         if init_state is None:
@@ -79,7 +86,6 @@ def hill_climb(problem, max_iters=np.inf, restarts=0, init_state=None,
             problem.set_state(init_state)
 
         iters = 0
-
         while iters < max_iters:
             iters += 1
 
@@ -87,6 +93,17 @@ def hill_climb(problem, max_iters=np.inf, restarts=0, init_state=None,
             problem.find_neighbors()
             next_state = problem.best_neighbor()
             next_fitness = problem.eval_fitness(next_state)
+            # invoke callback
+            if state_fitness_callback is not None:
+                continue_iterating = state_fitness_callback(iters,
+                                                            False,
+                                                            problem.get_state(),
+                                                            problem.get_maximize() * problem.get_fitness(),
+                                                            np.asarray(fitness_curve) if fitness_curve is not None else None,
+                                                            callback_user_info)
+                # break out if requested
+                if not continue_iterating:
+                    break
 
             # If best neighbor is an improvement, move to that state
             if next_fitness > problem.get_fitness():
@@ -94,6 +111,9 @@ def hill_climb(problem, max_iters=np.inf, restarts=0, init_state=None,
 
             else:
                 break
+        # break out if requested
+        if not continue_iterating:
+            break
 
         # Update best state and best fitness
         if problem.get_fitness() > best_fitness:
@@ -112,7 +132,8 @@ def hill_climb(problem, max_iters=np.inf, restarts=0, init_state=None,
 
 
 def random_hill_climb(problem, max_attempts=10, max_iters=np.inf, restarts=0,
-                      init_state=None, curve=False, random_state=None):
+                      init_state=None, curve=False, random_state=None,
+                      state_fitness_callback=None, callback_user_info=None):
     """Use randomized hill climbing to find the optimum for a given
     optimization problem.
 
@@ -139,6 +160,12 @@ def random_hill_climb(problem, max_attempts=10, max_iters=np.inf, restarts=0,
     random_state: int, default: None
         If random_state is a positive integer, random_state is the seed used
         by np.random.seed(); otherwise, the random seed is not set.
+    state_fitness_callback: function taking five parameters, default: None
+        If specified, this callback will be invoked once per iteration.
+        Parameters are (iteration, max attempts reached?, current best state, current best fit, user callback data).
+        Return true to continue iterating, or false to stop.
+    callback_user_info: any, default: None
+        User data passed as last parameter of callback.
 
     Returns
     -------
@@ -179,7 +206,7 @@ def random_hill_climb(problem, max_attempts=10, max_iters=np.inf, restarts=0,
 
     if curve:
         fitness_curve = []
-
+    continue_iterating = True
     for _ in range(restarts + 1):
         # Initialize optimization problem and attempts counter
         if init_state is None:
@@ -196,7 +223,19 @@ def random_hill_climb(problem, max_attempts=10, max_iters=np.inf, restarts=0,
             # Find random neighbor and evaluate fitness
             next_state = problem.random_neighbor()
             next_fitness = problem.eval_fitness(next_state)
-
+            # invoke callback
+            if state_fitness_callback is not None:
+                max_attempts_reached = (attempts == max_attempts - 1)
+                continue_iterating = state_fitness_callback(iters,
+                                                            max_attempts_reached,
+                                                            problem.get_state(),
+                                                            problem.get_maximize() * problem.get_fitness(),
+                                                            np.asarray(
+                                                                fitness_curve) if fitness_curve is not None else None,
+                                                            callback_user_info)
+                # break out if requested
+                if not continue_iterating:
+                    break
             # If best neighbor is an improvement,
             # move to that state and reset attempts counter
             if next_fitness > problem.get_fitness():
@@ -208,6 +247,10 @@ def random_hill_climb(problem, max_attempts=10, max_iters=np.inf, restarts=0,
 
             if curve:
                 fitness_curve.append(problem.get_fitness())
+
+        # break out if requested
+        if not continue_iterating:
+            break
 
         # Update best state and best fitness
         if problem.get_fitness() > best_fitness:
@@ -224,7 +267,8 @@ def random_hill_climb(problem, max_attempts=10, max_iters=np.inf, restarts=0,
 
 def simulated_annealing(problem, schedule=GeomDecay(), max_attempts=10,
                         max_iters=np.inf, init_state=None, curve=False,
-                        random_state=None):
+                        random_state=None,
+                        state_fitness_callback=None, callback_user_info=None):
     """Use simulated annealing to find the optimum for a given
     optimization problem.
 
@@ -251,6 +295,12 @@ def simulated_annealing(problem, schedule=GeomDecay(), max_attempts=10,
     random_state: int, default: None
         If random_state is a positive integer, random_state is the seed used
         by np.random.seed(); otherwise, the random seed is not set.
+    state_fitness_callback: function taking five parameters, default: None
+        If specified, this callback will be invoked once per iteration.
+        Parameters are (iteration, max attempts reached?, current best state, current best fit, user callback data).
+        Return true to continue iterating, or false to stop.
+    callback_user_info: any, default: None
+        User data passed as last parameter of callback.
 
     Returns
     -------
@@ -297,6 +347,18 @@ def simulated_annealing(problem, schedule=GeomDecay(), max_attempts=10,
     while (attempts < max_attempts) and (iters < max_iters):
         temp = schedule.evaluate(iters)
         iters += 1
+        # invoke callback
+        if state_fitness_callback is not None:
+            max_attempts_reached = (attempts == max_attempts - 1)
+            continue_iterating = state_fitness_callback(iters,
+                                                        max_attempts_reached,
+                                                        problem.get_state(),
+                                                        problem.get_maximize()*problem.get_fitness(),
+                                                        np.asarray(fitness_curve) if curve else None,
+                                                        callback_user_info)
+            # break out if requested
+            if not continue_iterating:
+                break
 
         if temp == 0:
             break
@@ -331,8 +393,10 @@ def simulated_annealing(problem, schedule=GeomDecay(), max_attempts=10,
     return best_state, best_fitness
 
 
-def genetic_alg(problem, pop_size=200, mutation_prob=0.1, max_attempts=10,
-                max_iters=np.inf, curve=False, random_state=None):
+def genetic_alg(problem, pop_size=200, pop_breed_percent=0.75, elite_dreg_ratio=0.95,
+                minimum_elites=0, minimum_dregs=0, mutation_prob=0.1,
+                max_attempts=10, max_iters=np.inf, curve=False, random_state=None,
+                state_fitness_callback=None, callback_user_info=None):
     """Use a standard genetic algorithm to find the optimum for a given
     optimization problem.
 
@@ -344,6 +408,18 @@ def genetic_alg(problem, pop_size=200, mutation_prob=0.1, max_attempts=10,
         :code:`TSPOpt()`.
     pop_size: int, default: 200
         Size of population to be used in genetic algorithm.
+    pop_breed_percent: float, default 0.75
+        Percentage of population to breed in each iteration.
+        The remainder of the population will be filled from the elite and
+        dregs of the prior generation in a ratio specified by elite_dreg_ratio.
+    elite_dreg_ratio: float, default:0.95
+        The ratio of elites:dregs added directly to the next generation.
+        For the default value, 95% of the added population will be elites,
+        5% will be dregs.
+    minimum_elites: int, default: 0
+        Minimum number of elites to be added to next generation
+    minimum_dregs: int, default: 0
+        Minimum number of dregs to be added to next generation
     mutation_prob: float, default: 0.1
         Probability of a mutation at each element of the state vector
         during reproduction, expressed as a value between 0 and 1.
@@ -359,6 +435,12 @@ def genetic_alg(problem, pop_size=200, mutation_prob=0.1, max_attempts=10,
     random_state: int, default: None
         If random_state is a positive integer, random_state is the seed used
         by np.random.seed(); otherwise, the random seed is not set.
+    state_fitness_callback: function taking five parameters, default: None
+        If specified, this callback will be invoked once per iteration.
+        Parameters are (iteration, max attempts reached?, current best state, current best fit, user callback data).
+        Return true to continue iterating, or false to stop.
+    callback_user_info: any, default: None
+        User data passed as last parameter of callback.
 
     Returns
     -------
@@ -384,6 +466,16 @@ def genetic_alg(problem, pop_size=200, mutation_prob=0.1, max_attempts=10,
         else:
             raise Exception("""pop_size must be a positive integer.""")
 
+    breeding_pop_size = int(pop_size * pop_breed_percent) - (minimum_elites + minimum_dregs)
+    if breeding_pop_size < 1:
+        raise Exception("""pop_breed_percent must be large enough to ensure at least one mating.""")
+
+    if pop_breed_percent > 1:
+        raise Exception("""pop_breed_percent must be less than 1.""")
+
+    if (elite_dreg_ratio < 0) or (elite_dreg_ratio > 1):
+        raise Exception("""elite_dreg_ratio must be between 0 and 1.""")
+
     if (mutation_prob < 0) or (mutation_prob > 1):
         raise Exception("""mutation_prob must be between 0 and 1.""")
 
@@ -408,6 +500,14 @@ def genetic_alg(problem, pop_size=200, mutation_prob=0.1, max_attempts=10,
     attempts = 0
     iters = 0
 
+    # initialize survivor count, elite count and dreg count
+    survivors_size = pop_size - breeding_pop_size
+    dregs_size = max(int(survivors_size * (1.0 - elite_dreg_ratio)) if survivors_size > 1 else 0, minimum_dregs)
+    elites_size = max(survivors_size - dregs_size, minimum_elites)
+    if dregs_size + elites_size > survivors_size:
+        over_population = dregs_size + elites_size - survivors_size
+        breeding_pop_size -= over_population
+
     while (attempts < max_attempts) and (iters < max_iters):
         iters += 1
 
@@ -416,8 +516,7 @@ def genetic_alg(problem, pop_size=200, mutation_prob=0.1, max_attempts=10,
 
         # Create next generation of population
         next_gen = []
-
-        for _ in range(pop_size):
+        for _ in range(breeding_pop_size):
             # Select parents
             selected = np.random.choice(pop_size, size=2,
                                         p=problem.get_mate_probs())
@@ -428,11 +527,34 @@ def genetic_alg(problem, pop_size=200, mutation_prob=0.1, max_attempts=10,
             child = problem.reproduce(parent_1, parent_2, mutation_prob)
             next_gen.append(child)
 
-        next_gen = np.array(next_gen)
+        # fill remaining population with elites/dregs
+        if survivors_size > 0:
+            last_gen = list(zip(problem.get_population(), problem.get_pop_fitness()))
+            sorted_parents = sorted(last_gen, key=lambda f: -f[1])
+            best_parents = sorted_parents[:elites_size]
+            next_gen.extend([p[0] for p in best_parents])
+            if dregs_size > 0:
+                worst_parents = sorted_parents[-dregs_size:]
+                next_gen.extend([p[0] for p in worst_parents])
+
+        next_gen = np.array(next_gen[:pop_size])
         problem.set_population(next_gen)
 
         next_state = problem.best_child()
         next_fitness = problem.eval_fitness(next_state)
+
+        # invoke callback
+        if state_fitness_callback is not None:
+            max_attempts_reached = (attempts == max_attempts - 1)
+            continue_iterating = state_fitness_callback(iters,
+                                                        max_attempts_reached,
+                                                        problem.get_state(),
+                                                        problem.get_maximize()*problem.get_fitness(),
+                                                        np.asarray(fitness_curve) if curve else None,
+                                                        callback_user_info)
+            # break out if requested
+            if not continue_iterating:
+                break
 
         # If best child is an improvement,
         # move to that state and reset attempts counter
@@ -456,7 +578,8 @@ def genetic_alg(problem, pop_size=200, mutation_prob=0.1, max_attempts=10,
 
 
 def mimic(problem, pop_size=200, keep_pct=0.2, max_attempts=10,
-          max_iters=np.inf, curve=False, random_state=None):
+          max_iters=np.inf, curve=False, random_state=None,
+          state_fitness_callback=None, callback_user_info=None):
     """Use MIMIC to find the optimum for a given optimization problem.
 
     Parameters
@@ -481,6 +604,12 @@ def mimic(problem, pop_size=200, keep_pct=0.2, max_attempts=10,
     random_state: int, default: None
         If random_state is a positive integer, random_state is the seed used
         by np.random.seed(); otherwise, the random seed is not set.
+    state_fitness_callback: function taking five parameters, default: None
+        If specified, this callback will be invoked once per iteration.
+        Parameters are (iteration, max attempts reached?, current best state, current best fit, user callback data).
+        Return true to continue iterating, or false to stop.
+    callback_user_info: any, default: None
+        User data passed as last parameter of callback.
 
     Returns
     -------
@@ -545,6 +674,19 @@ def mimic(problem, pop_size=200, keep_pct=0.2, max_attempts=10,
 
         # Update probability estimates
         problem.eval_node_probs()
+
+        # invoke callback
+        if state_fitness_callback is not None:
+            max_attempts_reached = (attempts == max_attempts - 1)
+            continue_iterating = state_fitness_callback(iters,
+                                                        max_attempts_reached,
+                                                        problem.get_state(),
+                                                        problem.get_maximize()*problem.get_fitness(),
+                                                        np.asarray(fitness_curve) if curve else None,
+                                                        callback_user_info)
+            # break out if requested
+            if not continue_iterating:
+                break
 
         # Generate new sample
         new_sample = problem.sample_pop(pop_size)
