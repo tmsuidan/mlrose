@@ -109,6 +109,10 @@ class OptProb:
         # This forces mate_probs for these pop members to 0.
         pop_fitness[pop_fitness == -1.0*np.inf] = 0
 
+        # account for maximize = False
+        if self.maximize == -1:
+            pop_fitness -= np.min(pop_fitness)
+
         if np.sum(pop_fitness) == 0:
             self.mate_probs = np.ones(len(pop_fitness)) \
                               / len(pop_fitness)
@@ -124,6 +128,16 @@ class OptProb:
             Fitness value of current state vector.
         """
         return self.fitness
+
+    def get_adjusted_fitness(self):
+        """ Return maximization factor * fitness of the current state vector.
+
+        Returns
+        -------
+        self.maximize*self.fitness: float
+            Fitness value of current state vector adjusted by maximization factor.
+        """
+        return self.maximize * self.fitness
 
     def get_length(self):
         """ Return the state vector length.
